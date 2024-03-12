@@ -1,0 +1,430 @@
+Program.Sub.ScreenSU.Start
+Gui.Form..Create
+Gui.Form..Caption("Add Agency ID")
+Gui.Form..Size(4665,2160)
+Gui.Form..MinX(0)
+Gui.Form..MinY(0)
+Gui.Form..Position(0,0)
+Gui.Form..BackColor(-2147483633)
+Gui.Form..MousePointer(0)
+Gui.Form..Event(UnLoad,UnLoad)
+Gui.Form.cmdBrswr.Create(Button)
+Gui.Form.cmdBrswr.Size(555,375)
+Gui.Form.cmdBrswr.Position(2145,750)
+Gui.Form.cmdBrswr.Caption("^")
+Gui.Form.cmdBrswr.Event(Click,cmdBrswr_Click)
+Gui.Form.txtID.Create(TextBox,"",True,1920,300,0,105,780,True,0,"Arial",8,-2147483643,1)
+Gui.Form.lbl1.Create(Label,"Add an Agency ID to the Zip Code:",True,3465,300,0,75,240,True,0,"Arial",10,-2147483633,0)
+Gui.Form.cmdSave.Create(Button)
+Gui.Form.cmdSave.Size(855,375)
+Gui.Form.cmdSave.Position(3045,765)
+Gui.Form.cmdSave.Caption("Save")
+Gui.Form.cmdSave.Event(Click,cmdSave_Click)
+Gui.Form2..Create
+Gui.Form2..Caption("Update Agency")
+Gui.Form2..Size(4995,2145)
+Gui.Form2..MinX(0)
+Gui.Form2..MinY(0)
+Gui.Form2..Position(0,0)
+Gui.Form2..BackColor(-2147483633)
+Gui.Form2..MousePointer(0)
+Gui.Form2..Event(UnLoad,UnLoad)
+Gui.Form2.cmdBrwsr_File.Create(Button)
+Gui.Form2.cmdBrwsr_File.Size(600,375)
+Gui.Form2.cmdBrwsr_File.Position(3975,465)
+Gui.Form2.cmdBrwsr_File.Caption("^")
+Gui.Form2.cmdBrwsr_File.Event(Click,cmdBrwsr_File_Click)
+Gui.Form2.txtFile.Create(TextBox,"",True,3540,300,0,285,510,False,0,"Arial",8,-2147483643,1)
+Gui.Form2.txtFile.Locked(True)
+Gui.Form2.cmdUpdate.Create(Button)
+Gui.Form2.cmdUpdate.Size(855,375)
+Gui.Form2.cmdUpdate.Position(525,900)
+Gui.Form2.cmdUpdate.Caption("Update")
+Gui.Form2.cmdUpdate.Event(Click,cmdUpdate_Click)
+Gui.Form2.cmdDelete.Create(Button)
+Gui.Form2.cmdDelete.Size(855,375)
+Gui.Form2.cmdDelete.Position(2745,915)
+Gui.Form2.cmdDelete.Caption("Delete")
+Gui.Form2.cmdDelete.Event(Click,cmdDelete_Click)
+Gui.Form2.lbl1.Create(Label,"Choose a File:",True,2055,255,0,240,195,True,0,"Arial",12,-2147483633,0)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+V.Global..BulkDeclareString(sZip, sTemp)
+V.Global.bUpdate.Declare(Boolean)
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+v.Local.ssql.Declare(String)
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+F.Intrinsic.Control.SelectCase(V.Caller.Hook)
+
+	F.Intrinsic.Control.Case("14350")
+	'this is the populate hook: AR> file> customers. This changes the label for sales rep to agency
+	V.Passed.000113.Set("Agency")
+	
+	F.Intrinsic.Control.Case("14410")
+	'this is the populate hook: AR> file> customers. This changes the label for sales rep to agency
+	V.Passed.000136.Set("Agency")
+	
+	F.Intrinsic.Control.Case("43210")
+	'this is the populate hook: System Support -> Administration -> Company Opti11560	ons Standard -> Accounts Receivable Table Maintenance -> SalesPerson Entry and Maintenance
+	V.Passed.000030.Set("Agency Name")
+	V.Passed.000031.Set("Agency Code")
+	V.Passed.000007.Set("Agency Email")
+	
+	F.Intrinsic.Control.Case("14389")
+	'this is a change in the ship to zip code  in customer master
+			'query customer master salesperson for 01 if = 01 end
+			f.Intrinsic.String.Build("SELECT SALESPERSON from V_CUSTOMER_MASTER where CUSTOMER = '{0}'",v.passed.000006,v.Local.ssql)
+			F.ODBC.Connection!con.OpenLocalRecordsetRO("rst",V.Local.ssql)
+			f.Intrinsic.Control.If(v.ODBC.con!rst.FieldValTrim!SALESPERSON,=,"01")
+				f.Intrinsic.Control.End
+			f.Intrinsic.Control.EndIf
+			f.ODBC.con!rst.Close	
+		V.Global.sZip.Set(V.Passed.000023)
+		F.Intrinsic.Control.CallSub(CustomerZip)
+		
+	F.Intrinsic.Control.Case("14441")
+	'this is a change in the ship to zip code for additional ship to in customer master
+		V.Global.sZip.Set(V.Passed.000010)
+			'query customer master salesperson for 01 if = 01 end
+			f.Intrinsic.String.Build("SELECT SALESPERSON from V_CUSTOMER_MASTER where CUSTOMER = '{0}'",v.passed.000006,v.Local.ssql)
+			F.ODBC.Connection!con.OpenLocalRecordsetRO("rst",V.Local.ssql)
+			f.Intrinsic.Control.If(v.ODBC.con!rst.FieldValTrim!SALESPERSON,=,"01")
+				f.Intrinsic.Control.End
+			f.Intrinsic.Control.EndIf
+			f.ODBC.con!rst.Close	
+		F.Intrinsic.Control.CallSub(CustomerZip)
+		
+	F.Intrinsic.Control.Case("11560")
+	'populate hook- new/open orders
+
+		V.Passed.000111.Set("Agency")
+		
+		Function.Intrinsic.Control.If(V.Caller.Switches, =, "N")
+			'query customer master salesperson for 01 if = 01 end
+			f.Intrinsic.String.Build("SELECT SALESPERSON from V_CUSTOMER_MASTER where CUSTOMER = '{0}'",v.passed.000006,v.Local.ssql)
+			F.ODBC.Connection!con.OpenLocalRecordsetRO("rst",V.Local.ssql)
+			f.Intrinsic.Control.If(v.ODBC.con!rst.FieldValTrim!SALESPERSON,=,"01")
+				f.Intrinsic.Control.End
+			f.Intrinsic.Control.EndIf
+			f.ODBC.con!rst.Close	
+			V.Global.sZip.Set(V.Passed.000018)
+			F.Intrinsic.Control.CallSub(CustomerZip)
+		Function.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.Case("33341")		
+		
+	F.Intrinsic.Control.Case("11570")
+	'populate hook- new/open orders
+		V.Passed.000111.Set("Agency")	
+		Function.Intrinsic.Control.If(V.Caller.Switches, =, "N")
+			'query customer master salesperson for 01 if = 01 end
+			f.Intrinsic.String.Build("SELECT SALESPERSON from V_CUSTOMER_MASTER where CUSTOMER = '{0}'",v.passed.000006,v.Local.ssql)
+			F.ODBC.Connection!con.OpenLocalRecordsetRO("rst",V.Local.ssql)
+			f.Intrinsic.Control.If(v.ODBC.con!rst.FieldValTrim!SALESPERSON,=,"01")
+				f.Intrinsic.Control.End
+			f.Intrinsic.Control.EndIf
+			f.ODBC.con!rst.Close	
+		Function.Intrinsic.Control.EndIf
+	'customer wanted this to be removed- just made adjustments
+	F.Intrinsic.Control.Case("11870")
+	'pre save hook new/open orders: check the ship to zip and populate the "Agency" with the matching salesperson
+	'correction 9/7/2017 just check to make sure the agency is not blank
+		Function.Intrinsic.Control.If(V.Passed.000030, =, "")
+			F.Intrinsic.UI.Msgbox("Sales Order Must Have Agency: Order Will Not Be Saved")
+			V.Passed.777777.Set(1)
+		Function.Intrinsic.Control.EndIf
+
+	F.Intrinsic.Control.Case("33310")
+	'populate hook new/open orders> addl Addrs: change label to Agency
+		V.Passed.000103.Set("Agency")
+	F.Intrinsic.Control.Case("33340")
+		f.Intrinsic.Control.If(v.Passed.000017,=,"No Commission")
+			f.Intrinsic.Control.End
+		f.Intrinsic.Control.EndIf
+		'pre save hook addl Addrs in orders: check the ship to zip and populate the "Agency" with the matching salesperson
+		V.Global.sZip.Set(V.Passed.000028)
+		F.Intrinsic.Control.CallSub(CustomerZip)
+	F.Intrinsic.Control.CaseElse
+		'then this is the custom menu item for maintenance
+		GUI.Form2..Show
+F.Intrinsic.Control.EndSelect
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4556_Sales_Agency_Program.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.Maintenance.Start
+F.Intrinsic.Control.SetErrorHandler("Maintenance_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+V.Local.iC.Declare(Long)
+V.Local..BulkDeclareString( sRet, sDNE, ssql)
+
+F.Intrinsic.Control.If(V.Screen.Form2!txtFile.Text, <>, "***CANCEL***")
+	'return excel to a string
+	Function.Automation.MSExcel.ReadSpreadsheet(V.Screen.Form2!txtFile.Text,3,0,V.Local.sRet)
+'	f.Intrinsic.String.Replace(v.Local.sret,"&^&","$!$",v.Local.sret)
+	'write to datatable
+	F.Data.DataTable.CreateFromString("ZIP", V.Local.sRet, "AgencyID*!*State*!*ZipCode", "String*!*String*!*String", "*!*", "$!$", True)
+	
+	'add custom columns to match on Agency and State- this will allow for update or insert
+	F.Data.DataTable.AddExpressionColumn("ZIP", "AgSt", "String", "[AgencyID] +'-'+[State]+'-'+[ZipCode]")
+	F.Data.DataTable.AddColumn("ZIP", "ZipOld", "string")
+	F.Data.Dictionary.CreateFromSQL("dict", "con", "Select   RTrim(AgencyID)+'-'+rTrim(State)+'-'+rTrim(ZipCode)   As AgSt, rTrim(ZipCode) As ZipOld From GCG_4556_ZipAgency")
+	F.Data.Dictionary.SetDefaultReturn("dict", "")
+	F.Data.DataTable.FillFromDictionary("ZIP", "dict", "AgSt", "ZipOld" )
+	F.Data.Dictionary.Close("dict")
+	'add from the salespersons table to verify the Id exist in the salesperson table
+	F.Data.DataTable.AddColumn("ZIP", "Sales", "string")
+	F.Data.Dictionary.CreateFromSQL("dict", "con", "Select rTrim(ID)  As Sales, rTrim(ID) As Sales From  SALESPERSONS")
+	F.Data.Dictionary.SetDefaultReturn("dict", "")
+	F.Data.DataTable.FillFromDictionary("ZIP", "dict", "AgencyID", "Sales" )
+	F.Data.Dictionary.Close("dict")
+	'select to dataview where ID = "", this is where the salepersons ID does not exist
+	F.Data.DataView.Create("ZIP", "Zip_V")
+	Function.Data.DataView.SetFilter("ZIP", "Zip_V", "[Sales] =    ' '  ")
+	'select to distinct datatable to remove duplicates
+	F.Data.DataView.ToDataTableDistinct("ZIP", "Zip_V", "NotFound", "AgencyID")
+	'back to view to get string
+	F.Data.DataView.Create("NotFound", "NotFound_V")
+	Function.Data.DataView.ToString("NotFound", "NotFound_V", "AgencyID", "*!*", " , ", V.Local.sDNE)
+	F.Intrinsic.Control.If(V.Local.sDNE, <>, "AgencyID")
+		F.Intrinsic.String.Build("The following Agency ID's were not found: {0}" , V.Local.sDNE, V.Local.sRet)
+		F.Intrinsic.UI.Msgbox(V.Local.sRet)
+	F.Intrinsic.Control.EndIf
+	'close the view
+	F.Data.DataView.Close("ZIP", "Zip_V")
+	'select to view where ZipOld = "" this is where we insert the table
+	F.Data.DataView.Create("ZIP", "Zip_V")
+	Function.Data.DataView.SetFilter("ZIP", "Zip_V", "[ZipOld] =    ' '  And [Sales] <>   ' ' ")
+	Function.Data.DataView.ToDataTable("ZIP", "Zip_V", "INSERT")
+	
+	'for upload
+	Function.Intrinsic.Control.If(V.Global.bUpdate, =, TRUE)
+		Function.Data.DataTable.SaveToDB("INSERT", "con", "GCG_4556_ZipAgency", "", 128, "AgencyID@!@AgencyID*!*State@!@State*!*ZipCode@!@ZipCode")
+		F.Intrinsic.UI.Msgbox("Successful Upload")
+	Function.Intrinsic.Control.Else
+		'for delete
+		F.Intrinsic.Control.For( V.Local.iC, 0,V.DataTable.ZIP.Rowcount--, 1)
+			F.Intrinsic.String.Build("Delete From GCG_4556_ZipAgency Where AgencyID = '{0}' And State = '{1}' And ZipCode = '{2}'", V.DataTable.ZIP(v.Local.iC).AgencyID!FieldValTrim, V.DataTable.ZIP(v.Local.iC).State!FieldValTrim, V.DataTable.ZIP(v.Local.iC).ZipCode!FieldValTrim, V.Local.ssql)
+			F.ODBC.Connection!con.Execute(V.Local.ssql)
+		F.Intrinsic.Control.Next(V.Local.iC)
+		F.Intrinsic.UI.Msgbox("Successful Delete")
+	Function.Intrinsic.Control.EndIf
+	'close views and tables
+	F.Data.DataView.Close("ZIP", "Zip_V")
+	F.Data.DataTable.Close("ZIP")
+	F.Data.DataTable.Close("INSERT")
+	F.Data.DataView.Close("NotFound", "NotFound_V")
+	F.Data.DataTable.Close("NotFound")
+F.Intrinsic.Control.EndIf
+Function.Intrinsic.Control.CallSub(unload)
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Maintenance_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4556_Sales_Agency_Program.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Maintenance.End
+
+Program.Sub.CustomerZip.Start
+F.Intrinsic.Control.SetErrorHandler("CustomerZip_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+V.Local..BulkDeclareString(ssql, sID,sRet,)
+
+F.Intrinsic.String.Build("SELECT AGENCYID  FROM GCG_4556_ZipAgency  WHERE ZIPCODE = '{0}'",V.Global.sZip,V.Local.ssql)
+F.ODBC.Connection!con.ExecuteAndReturn(V.Local.ssql,V.Local.sRet)
+
+F.Intrinsic.String.Build("SELECT NAME FROM SALESPERSONS WHERE ID = '{0}'",V.Local.sRet,V.Local.ssql)
+F.ODBC.Connection!con.ExecuteAndReturn(V.Local.ssql, V.Local.sRet)
+' Set the values on the form for  Sales Rep based on the hook
+F.Intrinsic.Control.SelectCase(V.Caller.Hook)
+	F.Intrinsic.Control.Case("14389")
+		'this is a change in the ship to zip code  in customer master
+		V.Passed.000042.Set(V.Local.sRet)
+	F.Intrinsic.Control.Case("14441")
+		'this is a change in the ship to zip code for additional ship to in customer master
+		V.Passed.000014.Set(V.Local.sRet)
+	F.Intrinsic.Control.Case("33340")
+		'pre save hook addl Addrs in orders: check the ship to zip and populate the "Agency" with the matching salesperson
+		F.Intrinsic.Control.If(V.Local.sRet, <>, "")
+			'then just set the agency for the order
+			V.Passed.000017.Set(V.Local.sRet)
+		F.Intrinsic.Control.Else
+			'then give the user a choice to add a connection between the zip and ID- add an AgencyID to the zip
+			F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Case("11560")
+	
+		F.Intrinsic.Control.If(V.Local.sRet, <>, "")
+			V.Passed.000030.Set(V.Local.sRet)
+		Function.Intrinsic.Control.Else
+			GUI.Form..Show
+		Function.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndSelect
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("CustomerZip_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4556_Sales_Agency_Program.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.CustomerZip.End
+
+Program.Sub.cmdBrswr_Click.Start
+F.Intrinsic.Control.SetErrorHandler("cmdBrswr_Click_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+V.Local..BulkDeclareString(sRet, ssql)
+
+F.Data.Datatable.CreateFromSQL("ZIP", "con", "Select ID, NAME From SALESPERSONS")
+F.Data.DataView.Create("ZIP", "ZIP_V")
+F.Data.DataView.ToString("ZIP", "ZIP_V",  "*!*", "$!$", V.Local.sRet )
+F.Intrinsic.UI.BrowserFromString("Choose Agency ID",  V.Local.sRet, "*!*", "$!$", "Agency ID*!*Name"," 500*!*1000", V.Global.sTemp )
+F.Intrinsic.String.Split(V.Global.sTemp, "*!*", V.Global.sTemp)
+GUI.Form.txtID.Text(V.Global.sTemp(0))
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("cmdBrswr_Click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4556_Sales_Agency_Program.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.cmdBrswr_Click.End
+
+Program.Sub.cmdSave_Click.Start
+F.Intrinsic.Control.SetErrorHandler("cmdSave_Click_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+V.Local..BulkDeclareString(ssql, sret)
+
+GUI.Form..Visible(FALSE)
+F.Intrinsic.Control.If(V.Global.sTemp(0), <>, "***CANCEL***")
+	f.Intrinsic.String.Build("Select ZipCode from GCG_4556_ZipAgency where ZipCode = '{0}'",v.Global.szip,v.Local.ssql)
+	F.ODBC.Connection!con.ExecuteAndReturn(V.Local.ssql,V.Local.sRet)	
+	f.Intrinsic.Control.If(v.Local.sret.Trim,=,"")
+		F.Intrinsic.String.Build("Insert Into GCG_4556_ZipAgency (AgencyID, State, ZipCode) Values ('{0}', '{1}', '{2}')", V.Global.sTemp(0), V.passed.000017,  V.Global.sZip, V.Local.ssql)
+		F.ODBC.Connection!con.Execute(V.Local.ssql)
+	f.Intrinsic.Control.Else
+		f.Intrinsic.String.Build("update GCG_4556_ZipAgency set AgencyID = '{0}', State = '{1}' WHERE ZipCode = '{2}'",v.Global.stemp(0),v.passed.000017,V.Global.szip,v.Local.ssql)
+		F.ODBC.Connection!con.Execute(V.Local.ssql)	
+	f.Intrinsic.Control.EndIf
+	
+	'save agency to order
+	Function.Intrinsic.Control.If(V.Caller.Hook, =, 11870)
+		V.Passed.000030.Set(V.Global.sTemp(1))
+'	Function.Intrinsic.Control.Else
+'		V.Passed.000017.Set(V.Global.sTemp(1))
+	Function.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Else
+	'they did not choose anything- do not allow to save
+	V.Passed.777777.Set(1)
+	F.Intrinsic.Control.CallSub(Unload)
+F.Intrinsic.Control.EndIf
+	
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("cmdSave_Click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4556_Sales_Agency_Program.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.cmdSave_Click.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.SetErrorHandler("Unload_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+F.ODBC.Connection!con.Close
+Function.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4556_Sales_Agency_Program.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.End
+
+Function.Intrinsic.Control.EndIf
+Program.Sub.Unload.End
+
+Program.Sub.cmdBrwsr_File_Click.Start
+F.Intrinsic.Control.SetErrorHandler("Maintenance_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+V.Local..BulkDeclareString(sRet)
+F.Intrinsic.UI.ShowOpenFileDialog("", "xlsx|*xlsx|xls|*xls", "", V.Local.sRet)
+GUI.Form2.txtFile.Text(V.Local.sRet)
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Maintenance_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4556_Sales_Agency_Program.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.cmdBrwsr_File_Click.End
+
+Program.Sub.cmdUpdate_Click.Start
+F.Intrinsic.Control.SetErrorHandler("cmdBrwsr_File_Click_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+GUI.Form2..Visible(False)
+'set the boolean
+V.Global.bUpdate.Set(TRUE)
+Function.Intrinsic.Control.CallSub(maintenance)
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("cmdBrwsr_File_Click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4556_Sales_Agency_Program.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.cmdUpdate_Click.End
+
+Program.Sub.cmdDelete_Click.Start
+F.Intrinsic.Control.SetErrorHandler("cmdUpdate_Click_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+GUI.Form2..Visible(False)
+'set the boolean
+V.Global.bUpdate.Set(FALSE)
+Function.Intrinsic.Control.CallSub(maintenance)
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("cmdUpdate_Click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4556_Sales_Agency_Program.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.cmdDelete_Click.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$$}$12:00:00 AM$}$False
+Program.Sub.Comments.End
